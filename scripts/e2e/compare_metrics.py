@@ -16,14 +16,34 @@ TRANSIENT_LABEL_PATTERNS = {
             'replacement': 'jaeger-spans-'
         }
     },
-    # Add more patterns here as needed
-    # Example:
-    # 'elasticsearch': {
-    #     'index': {
-    #         'pattern': r'jaeger-\d{4}-\d{2}-\d{2}',
-    #         'replacement': 'jaeger-YYYY-MM-DD'
-    #     }
-    # }
+    'http_server': {
+        'otel_scope_version': {
+            'pattern': r'\d+\.\d+\.\d+',
+            'replacement': 'X.X.X'
+        },
+        'server_port': {
+            'pattern': r'\d+',
+            'replacement': 'PORT'
+        },
+        'otel_scope_schema_url': {
+            'pattern': r'https?://[^\s"]+',
+            'replacement': 'SCHEMA_URL'
+        }
+    },
+    'otel': {
+        'otel_scope_version': {
+            'pattern': r'\d+\.\d+\.\d+',
+            'replacement': 'X.X.X'
+        },
+        'server_port': {
+            'pattern': r'\d+',
+            'replacement': 'PORT'
+        },
+        'otel_scope_schema_url': {
+            'pattern': r'https?://[^\s"]+|^$',
+            'replacement': 'SCHEMA_URL'
+        }
+    }
 }
 
 def suppress_transient_labels(metric_name, labels):
