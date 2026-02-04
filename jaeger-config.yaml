@@ -1,0 +1,15 @@
+extensions:
+  ai_assistant:
+    llm_provider: openai
+    model_name: "qwen2.5-0.5b"
+    api_endpoint: "http://localhost:8080/v1"
+    prompts:
+      search_system_prompt: "You are a specialized query parser..."
+
+service:
+  extensions: [ai_assistant]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]

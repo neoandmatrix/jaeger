@@ -1,5 +1,5 @@
 service:
-  extensions: [jaeger_storage, jaeger_query, jaeger_mcp, remote_sampling, healthcheckv2, pprof]
+  extensions: [jaeger_storage, jaeger_query, jaeger_mcp, remote_sampling, healthcheckv2, pprof, ai_assistant]
   pipelines:
     traces:
       receivers: [otlp, jaeger, zipkin]
@@ -65,6 +65,13 @@ extensions:
       initial_sampling_probability: 0.1
     http:
     grpc:
+
+  ai_assistant:
+    llm_provider: openai
+    model_name: qwen2.5-0.5b
+    api_endpoint: http://localhost:6969/v1
+    server:
+      endpoint: 0.0.0.0:10000
 
 receivers:
   otlp:

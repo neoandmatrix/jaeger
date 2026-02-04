@@ -1,0 +1,15 @@
+services:
+  jaeger:
+    image: jaeger-v2-ai:latest
+    ports:
+      - "16686:16686" # UI
+      - "10000:10000" # AI Extension
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - CONFIG_FILE=/etc/jaeger-config.yaml
+    volumes:
+      - ./jaeger-config.yaml:/etc/jaeger-config.yaml
+    # Use host networking or extra_hosts if you need to reach localhost:8080 on the host
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway" 

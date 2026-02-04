@@ -37,6 +37,7 @@ import (
 	"go.opentelemetry.io/collector/service/telemetry/otelconftelemetry"
 
 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/exporters/storageexporter"
+	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/ai_assistant"
 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/expvar"
 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegermcp"
 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery"
@@ -80,6 +81,7 @@ func (b builders) build() (otelcol.Factories, error) {
 		// add-ons
 		basicauthextension.NewFactory(),
 		sigv4authextension.NewFactory(),
+		ai_assistant.NewFactory(),
 		jaegermcp.NewFactory(),
 		jaegerquery.NewFactory(),
 		jaegerstorage.NewFactory(),
