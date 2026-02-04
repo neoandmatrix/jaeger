@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/tmc/langchaingo/llms"
 	"go.uber.org/zap"
@@ -29,21 +30,43 @@ func (e *aiExtension) handleParseSearch(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 2. Construct Prompt
+	// 2. Fetch available services dynamically
+	services, err := e.queryAPI.GetServices(r.Context())
+	if err != nil {
+		e.logger.Warn("Failed to fetch services for prompt context", zap.Error(err))
+		services = []string{"jaeger"} // Fallback
+	}
+
+	// Sort and Limit services to avoid blowing up context window
+	sort.Strings(services)
+	maxServices := 50
+	truncated := false
+	if len(services) > maxServices {
+		services = services[:maxServices]
+		truncated = true
+	}
+	availableServices := fmt.Sprintf("%v", services)
+	if truncated {
+		availableServices = availableServices[:len(availableServices)-1] + " ...]" // Replace closing bracket with ellipsis
+	}
+
+	// 3. Construct Prompt
 	prompt := fmt.Sprintf("USER QUERY: %s", req.Query)
 	// We could prepend e.config.Prompts.SearchSystemPrompt here if LangChainGo supported strict system messages in simple Call API
 	// or we can construct a unified prompt.
 	if e.config.Prompts.SearchSystemPrompt != "" {
-		prompt = fmt.Sprintf("%s\n\n%s", e.config.Prompts.SearchSystemPrompt, prompt)
+		prompt = fmt.Sprintf("%s\n\nPlease select services from: %s\n\n%s", e.config.Prompts.SearchSystemPrompt, availableServices, prompt)
 	} else {
 		// Default system prompt if none configured
-		defaultSystemPrompt := `You are a query parser for the Jaeger Distributed Tracing system.
+		defaultSystemPrompt := fmt.Sprintf(`You are a query parser for the Jaeger Distributed Tracing system.
 Your goal is to extract search parameters from the user's natural language input and return them as a strict JSON object.
+
+Available Services: %s
 
 Output Schema:
 {
   "service": "The name of the microservice. (string or null)",
-  "operation": "The specific endpoint or function name. (string or null)" default: null,
+  "operation": "The specific endpoint or function name. (string or null) default: null",
   "tags": "Logfmt string of tags. Default: null",
   "minDuration": "Execution time floor. Default: null",
   "maxDuration": "Execution time ceiling. Default: null",
@@ -52,7 +75,10 @@ Output Schema:
 }
 
 Rules:
-1. Service: If no service is specified, use "jaeger".
+1. Service: MUST be one of the Available Services. 
+   - If the user does not specify a service, default to "jaeger" if it is in the list. 
+   - If "jaeger" is not in the list, default to the first service in Available Services.
+   - If the list is empty, return null.
 2. Tags: Return null unless "error", "failed", or "exception" is mentioned.
    - If mentioned, set to "error=true".
 3. MinDuration: Return null unless "slow" or a duration is mentioned.
@@ -71,7 +97,7 @@ Output:
   "lookback": "1h",
   "limit": 20
 }
-`
+`, availableServices)
 		prompt = fmt.Sprintf("%s\n\n%s", defaultSystemPrompt, prompt)
 	}
 

@@ -2,6 +2,7 @@ package ai_assistant
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,14 +10,21 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 	"github.com/tmc/langchaingo/llms/openai"
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/extension"
 	"go.uber.org/zap"
+
+	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery"
+	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery/querysvc"
 )
 
+var _ extension.Extension = (*aiExtension)(nil)
+
 type aiExtension struct {
-	config *Config
-	logger *zap.Logger
-	server *http.Server
-	llm    llms.Model
+	config   *Config
+	logger   *zap.Logger
+	server   *http.Server
+	llm      llms.Model
+	queryAPI *querysvc.QueryService
 }
 
 func newAIExtension(config *Config, logger *zap.Logger) *aiExtension {
@@ -26,12 +34,24 @@ func newAIExtension(config *Config, logger *zap.Logger) *aiExtension {
 	}
 }
 
+// Dependencies ensures this extension starts after jaegerquery
+func (e *aiExtension) Dependencies() []component.ID {
+	return []component.ID{jaegerquery.ID}
+}
+
 // Start is called when the Collector is starting.
 func (e *aiExtension) Start(ctx context.Context, host component.Host) error {
 	e.logger.Info("Starting AI Assistant Extension", zap.String("model", e.config.ModelName), zap.String("provider", e.config.LLMProvider))
 
+	// 1. Get QueryService dependency (MCP pattern)
+	queryExt, err := jaegerquery.GetExtension(host)
+	if err != nil {
+		return fmt.Errorf("cannot get %s extension: %w", jaegerquery.ID, err)
+	}
+	e.queryAPI = queryExt.QueryService()
+	e.logger.Info("AI Assistant successfully connected to Jaeger Query Service")
+
 	var llmClient llms.Model
-	var err error
 
 	if e.config.LLMProvider == "openai" {
 		// OpenAI Compatible (like llama.cpp server)
