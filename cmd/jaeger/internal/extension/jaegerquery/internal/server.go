@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
+	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery/internal/aihandler"
 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery/internal/apiv3"
 	"github.com/jaegertracing/jaeger/cmd/jaeger/internal/extension/jaegerquery/querysvc"
 	"github.com/jaegertracing/jaeger/internal/auth/bearertoken"
@@ -182,6 +183,37 @@ func initRouter(
 
 	apiHandler.RegisterRoutes(r)
 	staticHandlerCloser := RegisterStaticHandler(r, telset.Logger, queryOpts, querySvc.GetCapabilities())
+
+	// Register AI handler if enabled
+	if queryOpts.AI.Enabled {
+		aiCfg := aihandler.Config{
+			Enabled:      queryOpts.AI.Enabled,
+			LLMProvider:  queryOpts.AI.LLMProvider,
+			ModelName:    queryOpts.AI.ModelName,
+			APIEndpoint:  queryOpts.AI.APIEndpoint,
+			MCPServerURL: queryOpts.AI.MCPServerURL,
+		}
+		aiHandler, err := aihandler.NewHandler(aiCfg, querySvc, telset.Logger)
+		if err != nil {
+			telset.Logger.Error("Failed to initialize AI handler", zap.Error(err))
+		} else {
+			// Wrap the mux to include AI routes
+			mux := http.NewServeMux()
+			mux.Handle("/", r)
+			aiHandler.RegisterRoutes(mux)
+			telset.Logger.Info("AI handler registered", zap.String("endpoint", "/api/ai/search"))
+
+			var handler http.Handler = mux
+			if queryOpts.BearerTokenPropagation {
+				handler = bearertoken.PropagationHandler(telset.Logger, handler)
+			}
+			if tenancyMgr.Enabled {
+				handler = tenancy.ExtractTenantHTTPHandler(tenancyMgr, handler)
+			}
+			handler = traceResponseHandler(handler)
+			return handler, staticHandlerCloser
+		}
+	}
 
 	var handler http.Handler = r
 	if queryOpts.BearerTokenPropagation {

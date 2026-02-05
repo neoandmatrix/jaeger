@@ -42,6 +42,22 @@ type QueryOptions struct {
 	HTTP confighttp.ServerConfig `mapstructure:"http"`
 	// GRPC holds the GRPC configuration that the query service uses to serve requests.
 	GRPC configgrpc.ServerConfig `mapstructure:"grpc"`
+	// AI holds the AI handler configuration for natural language search.
+	AI AIConfig `mapstructure:"ai"`
+}
+
+// AIConfig holds configuration for the AI-powered search handler.
+type AIConfig struct {
+	// Enabled determines whether the AI handler is active.
+	Enabled bool `mapstructure:"enabled"`
+	// LLMProvider is the LLM provider to use (e.g., "openai", "ollama").
+	LLMProvider string `mapstructure:"llm_provider"`
+	// ModelName is the name of the model to use.
+	ModelName string `mapstructure:"model_name"`
+	// APIEndpoint is the URL of the LLM API.
+	APIEndpoint string `mapstructure:"api_endpoint"`
+	// MCPServerURL is the URL of the Jaeger MCP server.
+	MCPServerURL string `mapstructure:"mcp_server_url"`
 }
 
 func DefaultQueryOptions() QueryOptions {
